@@ -19,20 +19,20 @@ $targetDriverDesc = "NETGEAR"
 $ComponentId = "usb\vid_0846&pid_9053"
 
 # Start file logging to directory 
-Out-File -FilePath $logFile -Append -InputObject "Starting Log File"
+Out-File -FilePath $logFile -Append -InputObject "$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Starting Log File"
 # Test if $searchPath exists
 if (Test-Path $searchPath){
     # Get Registry items
     $items = Get-ChildItem $searchPath -ErrorAction SilentlyContinue
     # Loop through registry items
     foreach($item in $items){
-        Out-File -FilePath $logFile -Append -InputObject "Checking if DriverDesc Property exists for $($item.Name)."
+        Out-File -FilePath $logFile -Append -InputObject "$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Checking if DriverDesc Property exists for $($item.Name)."
         # Check if DriverDesc property exists.
         if (Get-ItemProperty -path $item.PSPath -Name DriverDesc){
-            Out-File -FilePath $logFile -Append -InputObject "Checking DriverDesc registry value, $((Get-ItemProperty -path $item.PSPath -Name DriverDesc).DriverDesc), against target value,  $($targetDriverDesc)"
+            Out-File -FilePath $logFile -Append -InputObject "$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Checking DriverDesc registry value, $((Get-ItemProperty -path $item.PSPath -Name DriverDesc).DriverDesc), against target value,  $($targetDriverDesc)"
             # Check value of DriverDesc against targetDriverDesc value
             if ((Get-ItemProperty -path $item.PSPath -Name 'DriverDesc').DriverDesc -match $targetDriverDesc){
-                Out-File -FilePath $logFile -Append -InputObject "Checking ComponentId Property registry value: $((Get-ItemProperty -path $item.PSPath -Name 'ComponentId').ComponentId) against target value, $($ComponentId)"
+                Out-File -FilePath $logFile -Append -InputObject "$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Checking ComponentId Property registry value: $((Get-ItemProperty -path $item.PSPath -Name 'ComponentId').ComponentId) against target value, $($ComponentId)"
                 # Check ComponentId property value agains target ComponentId.
                 if ((Get-ItemProperty -path $item.PSPath -Name 'ComponentId').ComponentId -like $ComponentId){
                     # Loop through hastable to check property values 
@@ -40,18 +40,18 @@ if (Test-Path $searchPath){
                         if (Get-ItemProperty -path $item.PSPath -Name $key){
                             if ((Get-ItemProperty -path $item.PSPath -Name $key).$key -ne $wifiProps[$key]){
                                 # Write-Host "Updating $($item.Name)\$($key); Current value:$((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])"
-                                Out-File -FilePath $logFile -Append -InputObject ("Updating $($item.Name)\$($key); Current value: $((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])")
+                                Out-File -FilePath $logFile -Append -InputObject ("$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Updating $($item.Name)\$($key); Current value: $((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])")
                                 Set-ItemProperty -path $item.PSPath -Name $key -Value $wifiProps[$key]
                                 }
                             else{
                                 # Write-Host "No Changes made $($item.Name)\$($key); Current value: $((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])"
-                                Out-File -FilePath $logFile -Append -InputObject ("No Changes made $($item.Name)\$($key); Current value: $((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])")
+                                Out-File -FilePath $logFile -Append -InputObject ("$(get-date -f 'yyyy-MM-dd HH:mm:ss') - No Changes made $($item.Name)\$($key); Current value: $((Get-ItemProperty -path $item.PSPath -Name $key).$key); Target Value: $($wifiProps[$key])")
                                 }
                         }
                         else{
-                            Write-Host "Adding $($key) with value $($wifiProps[$key]) to $($item.Name)"
+                            # Write-Host "Adding $($key) with value $($wifiProps[$key]) to $($item.Name)"
+                            Out-File -FilePath $logFile -Append -InputObject ("$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Adding ", $key, " with value ", $wifiProps[$key], "to ", $item.Name)
                             Set-ItemProperty -path $item.PSPath -Name $key -Value $wifiProps[$key]
-                            Out-File -FilePath $logFile -Append -InputObject ("Adding ", $key, " with value ", $wifiProps[$key], "to ", $item.Name)
                         }
                     }
                 }
@@ -61,7 +61,6 @@ if (Test-Path $searchPath){
 }
 # Write to log if $searchPath does not exist.
 else{
-
-    Out-File -FilePath $logFile -Append -InputObject "Invalid file Path: $($searchPath)"
+    Out-File -FilePath $logFile -Append -InputObject "$(get-date -f 'yyyy-MM-dd HH:mm:ss') - Invalid file Path: $($searchPath)"
 }
 
