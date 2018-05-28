@@ -1,12 +1,12 @@
 $configFile = "$($PSScriptRoot)\config.xml"
 $config = [xml](get-content $configFile)
-$uri = $config.configuration.appSettings['uri']
-$MailboxName = $config.configuration.appSettings['MailboxName']
-$user = $config.configuration.appSettings['user']
-$File = $config.configuration.appSettings['pass']
-$dllpath = $config.configuration.appSettings['dllpath']
-$logFile = $config.configuration.appSettings['logFile']
-
+$uri = $config.configuration.appSettings['uri'].InnerText
+$MailboxName = $config.configuration.appSettings['MailboxName'].InnerText
+$user = $config.configuration.appSettings['user'].InnerText
+$File = $config.configuration.appSettings['pass'].InnerText
+$dllpath = $config.configuration.appSettings['dllpath'].InnerText
+$logFile = $config.configuration.appSettings['logFile'].InnerText
+$label = $config.configuration.appSettings['label'].InnerText
 $EWSServicePath = $dllpath
 Import-Module $EWSServicePath
 
@@ -49,7 +49,7 @@ Register-ObjectEvent -inputObject $stmConnection -eventName "OnNotificationEvent
             $bodyText = " "
         }
         # "Date;Id;Label;mlActioned;Sender;Subject;Body"
-        "$(Get-Date);$($message.Id);;0;$($message.Sender);$($message.Subject);$($bodyText)" | Out-File "$($PSScriptRoot)\logs\ewsNotification.log" -Encoding UTF8 -Append
+        "$(Get-Date);$($message.Id);$($label);0;$($message.Sender);$($message.Subject);$($bodyText)" | Out-File "$($PSScriptRoot)\logs\ewsNotification.log" -Encoding UTF8 -Append
     }   
 } -MessageData $service  
 Register-ObjectEvent -inputObject $stmConnection -eventName "OnDisconnect" -Action {$event.MessageData.Open()} -MessageData $stmConnection  
