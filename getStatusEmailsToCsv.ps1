@@ -45,9 +45,12 @@ foreach ($folder in $FolderName){
 
     if ($findFolderResults.TotalCount -eq 1){ 
         $fiItems = $service.FindItems($findFolderResults.Id,$ivItemView) 
-        foreach($Item in $fiItems.Items){  
+        # foreach($Item in $fiItems.Items){  
+        for($i = 0; $i -lt $fiItems.Items.count; $i++){
+            $Item = $fiItems.Items[$i]
+            write-host $fiItems.Items.count, $i, $Item.Subject
             $emailItem = "" | Select Label, Sender, Subject, ReceivedDate, Id, TextBody, Size, DateTimeSent, DateTimeCreated
-            Write-Host "Processing $($Item.Subject)"
+            # Write-Host "Processing $($Item.Subject)"
             $Item.Load($PropertySet)
             $bodyText = $Item.Body.toString()
             if($bodyText){
@@ -67,6 +70,7 @@ foreach ($folder in $FolderName){
             $emailItem.DateTimeSent = $Item.DateTimeSent
             $emailItem.DateTimeCreated = $Item.DateTimeCreated
             $emailArray += $emailItem
+            Write-Progress -Activity "Processing emails in $folder" -Status "Item number $i" -PercentComplete ($i/$fiItems.Items.count*100)
         }  
     } 
     else{ 
