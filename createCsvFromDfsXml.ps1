@@ -1,11 +1,38 @@
-# XML from dfsutil /root:\\server\folder /export:file.xml /verbose
-# dfsutil link remove dfsLink
-# dfsutil link add dfsLink dfsTarget
+<#
+.SYNOPSIS
+    Generates either a CSV, scripts, or both from an XML exported from dfsutil /root:\\server\folder /export:filename.xml. The scripts generated are designed to remove the old links and create new links based on a provided server name.
+.DESCRIPTION
+    Generates either a CSV, scripts, or both from an XML exported from dfsutil /root:\\server\folder /export:filename.xml. The scripts generated are designed to remove the old links and create new links based on a provided server name.
+.PARAMETER server
+    Server name to replace the existing server name with for the migration script.  The script will check the provided server name to the DFS server names and only create replacement scripts based on the DFS server names which do not match.
+.PARAMETER file
+    The file parameters is the XML from dfsutil to process.   
+.PARAMETER export
+    Provides a custom name for the csv export.  By default the name is set to "dfsExport_YYYYMMddHHmmSS.csv" and is created in the same folder as the script.
+.PARAMETER scripts
+    Flag to determine if the script should create scripts based on the unique DFS folders in the export XML.  Each unique folder gets is own script to run, which removes the old DFS link and creates a new DFS link with the same share name to a new DFS target. 
+.PARAMETER csv
+    Flag to determine if the script should create a csv file of the DFS links from the processed XML file. 
+.PARAMETER scriptsDir
+    This paramter allows a custom directory for exporting the scripts.  If the directory does not exist it will be created.  By default, the scripts will be placed in a directory called "scripts_dfs" in the same folder as the main script. 
+.EXAMPLE
+    C:\PS> .\processDfsXml.ps1 -file $pwd\data\dfsExport.xml -server \\sub.example.com -scripts -csv
+    The example above will generate the scripts and csv files in the default locations based on a new DFS targer of sub.example.com with a XML file in the local folder named data.
+.NOTES
+    XML from dfsutil /root:\\server\folder /export:file.xml /verbose
+    dfsutil link remove dfsLink
+    dfsutil link add dfsLink dfsTarget  
+#>
+
+
+
 param (
     [string]$server = "",
     [string]$file = "",
+    [string]$scriptsDir = "scripts_dfs",
     [string]$export = "dfsExport_$(get-date -f yyyyMMddHHmmss).csv",
-    [switch]$generateScript = $False
+    [switch]$scripts = $False,
+    [switch]$csv = $False
 )
 
 $writeLogFunction = @'
@@ -59,11 +86,19 @@ $srcObject = [PSCustomObject]@{
     dfsAddLink       = 'dfsutil link add DFSLINK DFSTARGET'
 }
 
+if (-Not ($scripts) -And -Not ($csv)) {
+    throw "-csv or -scripts is required"
+}
+
 if (-Not [regex]::matches($server, $uncRegex)) {
     $server = "\\" + $server
 }
 
-Write-Host "Server: $($server) - File: $($file) - Export: $($export)"
+if (-Not (Test-Path $scriptsDir)) {
+    $results = New-Item -Path $scriptsDir -ItemType "directory"
+}
+
+# Write-Host "Server: $($server) - File: $($file) - Export: $($export)"
 $xml = New-Object -TypeName XML
 $xml.Load($file)
 
@@ -102,15 +137,18 @@ $xml.Root.Link | ForEach-Object {
     }
 }
 
-$links | Export-Csv -Path $export -NoTypeInformation
+if ($csv) {
+    $links | Export-Csv -Path $export -NoTypeInformation
+}
 
-if ($generateScript) {
+
+if ($scripts) {
     # $links | ft
     $uniqueRoots = $links | Sort-Object targetRootFolder -Unique | Select-Object -Property targetRootFolder
     $outVar = '$out'
     ForEach ($folder in $uniqueRoots) {
         # Write-Host $folder.targetRootFolder
-        $scriptFile = "data\$($folder.targetRootFolder)_dfs_Script_$(get-date -f yyyyMMddHHmmss).txt"
+        $scriptFile = Join-Path -Path $scriptsDir -ChildPath "$($folder.targetRootFolder)_dfs_Script_$(get-date -f yyyyMMddHHmmss).txt"
         $content = [System.Text.StringBuilder]::new()
 
         $endTimeLog = "Write-Log -logfile $($folder.targetRootFolder)_dfs.log -Message `"Elapsed Time - Total Hours: `$(`$timeSpan.TotalHours); TotalMinutes: `$(`$timeSpan.TotalMinutes); Total Seconds: `$(`$timeSpan.TotalSeconds)`"`n"
@@ -150,4 +188,6 @@ if ($generateScript) {
         }
     }
 }
+
+
 
