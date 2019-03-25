@@ -16,7 +16,7 @@
 .PARAMETER scriptsDir
     This paramter allows a custom directory for exporting the scripts.  If the directory does not exist it will be created.  By default, the scripts will be placed in a directory called "scripts_dfs" in the same folder as the main script. 
 .EXAMPLE
-    C:\PS> .\processDfsXml.ps1 -file $pwd\data\dfsExport.xml -server \\sub.example.com -scripts -csv
+    C:\PS> .\createCsvFromDfsXml.ps1.ps1 -file $pwd\data\dfsExport.xml -server \\sub.example.com -scripts -csv
     The example above will generate the scripts and csv files in the default locations based on a new DFS targer of sub.example.com with a XML file in the local folder named data.
 .NOTES
     XML from dfsutil /root:\\server\folder /export:file.xml /verbose
