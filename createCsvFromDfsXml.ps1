@@ -82,8 +82,8 @@ $srcObject = [PSCustomObject]@{
     targetServer     = ''
     targetRootFolder = ''
     targetFolderPath = ''
-    dfsLinkRemove    = "dfsutil link remove `"DFSLINK`""
-    dfsAddLink       = "dfsutil link add `"DFSLINK`" `"DFSTARGET`""
+    dfsLinkRemove    = "dfsutil link remove `"DFSLINK`" 2>&1 | out-null"
+    dfsAddLink       = "dfsutil link add `"DFSLINK`" `"DFSTARGET`" 2>&1 | out-null"
 }
 
 if (-Not ($scripts) -And -Not ($csv)) {
@@ -116,7 +116,7 @@ $xml.Root.Link | ForEach-Object {
             $tempObj.dfsFolder = $rootFolder
             $tempObj.targetServer = "\\" + $_.server
 
-            $tempDfsLink = Join-Path -Path $tempObj.dfsRoot -ChildPath $tempObj.dfsFolder
+            $tempDfsLink = "$(Join-Path -Path $tempObj.dfsRoot -ChildPath $tempObj.dfsFolder)"
             $tempObj.dfsLinkRemove = $tempObj.dfsLinkRemove.replace("DFSLINK", $tempDfsLink)
             
             if ($_.folder -Match "\\") {
@@ -165,13 +165,14 @@ if ($scripts) {
                     $checkLinkResults = "$($outVar) = (dfsutil link `"$(Join-Path -Path $link.dfsRoot -ChildPath $link.dfsFolder)`") | Out-String"
                     $writeResults = "Write-Log -logfile $($folder.targetRootFolder)_dfs.log -Message $($outVar)"
                     [void]$content.AppendLine("`# $($sourceCommentLine)")
+                    [void]$content.AppendLine("Write-Host `"Moving $(Join-Path -Path $link.targetServer -ChildPath $link.targetFolderPath)`"")
                     [void]$content.AppendLine($writeLog)
                     [void]$content.AppendLine($link.dfsLinkRemove)
                     [void]$content.AppendLine($link.dfsAddLink)
                     [void]$content.AppendLine($checkLinkResults)
                     [void]$content.Append($removeNewLineTab)
                     [void]$content.AppendLine($writeResults)
-                    
+                    [void]$content.AppendLine("Start-Sleep -s 1")
                     [void]$content.AppendLine("`n")
                 }
             }
@@ -188,6 +189,3 @@ if ($scripts) {
         }
     }
 }
-
-
-
