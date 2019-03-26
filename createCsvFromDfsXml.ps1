@@ -82,8 +82,8 @@ $srcObject = [PSCustomObject]@{
     targetServer     = ''
     targetRootFolder = ''
     targetFolderPath = ''
-    dfsLinkRemove    = 'dfsutil link remove DFSLINK'
-    dfsAddLink       = 'dfsutil link add DFSLINK DFSTARGET'
+    dfsLinkRemove    = "dfsutil link remove `"DFSLINK`""
+    dfsAddLink       = "dfsutil link add `"DFSLINK`" `"DFSTARGET`""
 }
 
 if (-Not ($scripts) -And -Not ($csv)) {
