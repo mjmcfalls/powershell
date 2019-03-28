@@ -6,7 +6,9 @@
 .PARAMETER server
     Server name to replace the existing server name with for the migration script.  The script will check the provided server name to the DFS server names and only create replacement scripts based on the DFS server names which do not match.
 .PARAMETER file
-    The file parameters is the XML from dfsutil to process.   
+    The file parameter is the XML from dfsutil to process. 
+.PARAMETER import
+    The import parameter process all xml files in the provided directory.
 .PARAMETER export
     Provides a custom name for the csv export.  By default the name is set to "dfsExport_YYYYMMddHHmmSS.csv" and is created in the same folder as the script.
 .PARAMETER scripts
@@ -31,9 +33,124 @@ param (
     [string]$file = "",
     [string]$scriptsDir = "scripts_dfs",
     [string]$export = "dfsExport_$(get-date -f yyyyMMddHHmmss).csv",
+    [string]$import = "",
     [switch]$scripts = $False,
+    [switch]$testScripts = $False,
     [switch]$csv = $False
 )
+
+Function Generate-TestScripts{
+    [CmdletBinding()]
+    Param(
+    $links,
+    $scriptsDir,
+    $writeLogFunction
+    )
+
+    $uniqueRoots = $links | Sort-Object targetRootFolder -Unique | Select-Object -Property targetRootFolder
+    $outVar = '$out'
+    ForEach ($folder in $uniqueRoots) {
+        # Write-Host $folder.targetRootFolder
+        $scriptFile = Join-Path -Path $scriptsDir -ChildPath "$($folder.targetRootFolder)_Tests_$(get-date -f yyyyMMddHHmmss).txt"
+        $content = [System.Text.StringBuilder]::new()
+
+        $endTimeLog = "Write-Log -logfile $($folder.targetRootFolder)_Tests.log -Message `"Elapsed Time - Total Hours: `$(`$timeSpan.TotalHours); TotalMinutes: `$(`$timeSpan.TotalMinutes); Total Seconds: `$(`$timeSpan.TotalSeconds)`"`n"
+
+
+        ForEach ($link in $links) {
+            if ($link.targetFolderPath -match $folder.targetRootFolder) {
+                # if (-Not $link.targetServer.contains($server)) {
+                    # Write-Host "TargetServer: $($link.targetServer)`tTargetRoot: $($folder.targetRootFolder)`tDFS: $(Join-Path -Path $link.dfsRoot -ChildPath $link.dfsFolder)"
+                    # $sourceCommentLine = "Source DFS Link: $(Join-Path -Path $link.dfsRoot -ChildPath $link.dfsFolder); Source DFS Target: $(Join-Path -Path $link.targetServer -ChildPath $link.targetFolderPath)"
+                    # $writeLog = "Write-Log -logfile $($folder.targetRootFolder)_dfs.log -Message `"$($sourceCommentLine)`""
+                    $checkLinkResults = "$($outVar) = Test-Path `"$(Join-Path -Path $link.dfsRoot -ChildPath $link.dfsFolder)`""
+                    $srcLogLine = "Available: `$($($outVar)); DFS Link: $(Join-Path -Path $link.dfsRoot -ChildPath $link.dfsFolder)"
+                    $writeResults = "Write-Log -logfile $($folder.targetRootFolder)_Tests.log -Message `"Results: $($srcLogLine)`""
+                    $writeHost = "Write-Host `"$($srcLogLine)`""
+                    # [void]$content.AppendLine("`# $($sourceCommentLine)")
+                    # [void]$content.AppendLine("Write-Host `"Moving $(Join-Path -Path $link.targetServer -ChildPath $link.targetFolderPath)`"")
+                    # [void]$content.AppendLine($writeLog)
+                    # [void]$content.AppendLine($link.dfsLinkRemove)
+                    # [void]$content.AppendLine($link.dfsAddLink)
+                    [void]$content.AppendLine($checkLinkResults)
+                    # [void]$content.Append($removeNewLineTab)
+                    [void]$content.AppendLine($writeResults)
+                    [void]$content.AppendLine($writeHost)
+                    [void]$content.AppendLine("`n")
+                # }
+            }
+        }
+        if ($content.Length -gt 0) {
+            # Write-Host $writeLogFunction
+            [void]$content.Insert(0, $startTimeScript, 1)
+            [void]$content.Insert(0, $writeLogFunction, 1)
+            [void]$content.AppendLine($endTimeScript)
+            [void]$content.AppendLine($endTimeLog)
+            Set-Content -Path $scriptFile -Value $content
+        }
+    }
+}
+
+
+Function Process-Xml {
+    [CmdletBinding()]
+    Param(
+    [Parameter(Mandatory=$True)]
+    [string]
+    $file
+    )
+
+    $srcObject = [PSCustomObject]@{
+        dfsRoot          = ''
+        dfsFolder        = ''
+        targetServer     = ''
+        targetRootFolder = ''
+        targetFolderPath = ''
+        dfsLinkRemove    = "dfsutil link remove `"DFSLINK`" 2>&1 | out-null"
+        dfsAddLink       = "dfsutil link add `"DFSLINK`" `"DFSTARGET`" 2>&1 | out-null"
+    }
+
+    $links = New-Object System.Collections.Generic.List[System.Object]
+    $xml = New-Object -TypeName XML
+    $xml.Load($file)
+
+    $root = $xml.Root.Name
+
+    $xml.Root.Link | ForEach-Object {
+        $rootFolder = $_.Name
+        if ($_.hasChildNodes) {
+            # $_.ChildNodes | Select-Object -Property *
+            $_.ChildNodes | ForEach-Object {
+                
+                $tempObj = $srcObject.psobject.Copy()
+                $tempObj.dfsRoot = $root
+                $tempObj.dfsFolder = $rootFolder
+                $tempObj.targetServer = "\\" + ($_.server).ToLower()
+
+                $tempDfsLink = "$(Join-Path -Path $tempObj.dfsRoot -ChildPath $tempObj.dfsFolder)"
+                $tempObj.dfsLinkRemove = $tempObj.dfsLinkRemove.replace("DFSLINK", $tempDfsLink)
+                
+                if ($_.folder -Match "\\") {
+                    $splitFolder = $_.folder -split "\\"
+                    $tempObj.targetRootFolder = $splitFolder[0]
+                    $tempObj.targetFolderPath = $_.folder
+                }
+                else {
+                    $tempObj.targetRootFolder = $_.folder
+                    $tempObj.targetFolderPath = $_.folder
+                }
+                # $tempDfsTarget = Join-Path -Path $tempObj.targetServer $tempObj.targetRootFolder -ChildPath $tempObj.targetFolderPath
+                $tempDfsTarget = [io.path]::combine($server, $tempObj.targetFolderPath)
+                $tempObj.dfsAddLink = $tempObj.dfsAddLink.Replace("DFSLINK", $tempDfsLink).replace("DFSTARGET", $tempDfsTarget)
+                # Write-Host $tempObj.dfsAddLink
+                $links.add($tempObj)
+            }
+        }
+    }
+    return $links
+}
+
+
 
 $writeLogFunction = @'
 Function Write-Log {
@@ -73,22 +190,14 @@ $timeSpan = (New-Timespan -Start $startTime -End $endTime)
 '@
 $endTimeLog = "Write-Log -logfile $($folder.targetRootFolder)_dfs.log -Message `"`$(get-date -f yyyyMMddHHMMss) - Elapsed Time - Total Hours: `$(`$timeSpan.TotalHours); TotalMinutes: `$(`$timeSpan.TotalMinutes); Total Seconds: `$(`$timeSpan.TotalSeconds)`"`n"
 $uncRegex = "^\\" 
-$links = New-Object System.Collections.Generic.List[System.Object]
+
 # $Path = "$($PSScriptRoot)\data\dfsExport.xml"
 
-$srcObject = [PSCustomObject]@{
-    dfsRoot          = ''
-    dfsFolder        = ''
-    targetServer     = ''
-    targetRootFolder = ''
-    targetFolderPath = ''
-    dfsLinkRemove    = "dfsutil link remove `"DFSLINK`" 2>&1 | out-null"
-    dfsAddLink       = "dfsutil link add `"DFSLINK`" `"DFSTARGET`" 2>&1 | out-null"
-}
 
-if (-Not ($scripts) -And -Not ($csv)) {
-    throw "-csv or -scripts is required"
-}
+
+# if (-Not ($scripts) -And -Not ($csv)) {
+#     throw "-csv or -scripts is required"
+# }
 
 if (-Not [regex]::matches($server, $uncRegex)) {
     $server = "\\" + $server
@@ -98,52 +207,39 @@ if (-Not (Test-Path $scriptsDir)) {
     $results = New-Item -Path $scriptsDir -ItemType "directory"
 }
 
-# Write-Host "Server: $($server) - File: $($file) - Export: $($export)"
-$xml = New-Object -TypeName XML
-$xml.Load($file)
 
-$root = $xml.Root.Name
-
-# $root
-$xml.Root.Link | ForEach-Object {
-    $rootFolder = $_.Name
-    if ($_.hasChildNodes) {
-        # $_.ChildNodes | Select-Object -Property *
-        $_.ChildNodes | ForEach-Object {
-            
-            $tempObj = $srcObject.psobject.Copy()
-            $tempObj.dfsRoot = $root
-            $tempObj.dfsFolder = $rootFolder
-            $tempObj.targetServer = "\\" + $_.server
-
-            $tempDfsLink = "$(Join-Path -Path $tempObj.dfsRoot -ChildPath $tempObj.dfsFolder)"
-            $tempObj.dfsLinkRemove = $tempObj.dfsLinkRemove.replace("DFSLINK", $tempDfsLink)
-            
-            if ($_.folder -Match "\\") {
-                $splitFolder = $_.folder -split "\\"
-                $tempObj.targetRootFolder = $splitFolder[0]
-                $tempObj.targetFolderPath = $_.folder
-            }
-            else {
-                $tempObj.targetRootFolder = $_.folder
-                $tempObj.targetFolderPath = $_.folder
-            }
-            # $tempDfsTarget = Join-Path -Path $tempObj.targetServer $tempObj.targetRootFolder -ChildPath $tempObj.targetFolderPath
-            $tempDfsTarget = [io.path]::combine($server, $tempObj.targetFolderPath)
-            $tempObj.dfsAddLink = $tempObj.dfsAddLink.Replace("DFSLINK", $tempDfsLink).replace("DFSTARGET", $tempDfsTarget)
-            # Write-Host $tempObj.dfsAddLink
-            $links.add($tempObj)
+If ($import){
+# Process all *.xml files in directory
+$links = New-Object System.Collections.Generic.List[System.Object]
+    Get-ChildItem -Path $import | foreach-object {
+        Write-Host "Processing $($_.Fullname)"
+        $returnLink = Process-Xml $_.FullName
+        foreach($link in $returnLink){
+            # Write-Host $link
+            $links.Add($link)
         }
+        
     }
+
 }
+else{
+    $links = Process-Xml $file
+
+}
+
 
 if ($csv) {
     $links | Export-Csv -Path $export -NoTypeInformation
 }
 
+if ($testScripts){
+    Generate-TestScripts $links $scriptsDir $writeLogFunction
+}
+
 
 if ($scripts) {
     # $links | ft
+
     $uniqueRoots = $links | Sort-Object targetRootFolder -Unique | Select-Object -Property targetRootFolder
     $outVar = '$out'
     ForEach ($folder in $uniqueRoots) {
@@ -172,15 +268,13 @@ if ($scripts) {
                     [void]$content.AppendLine($checkLinkResults)
                     [void]$content.Append($removeNewLineTab)
                     [void]$content.AppendLine($writeResults)
-                    [void]$content.AppendLine("Start-Sleep -s 1")
+                    [void]$content.AppendLine("Start-Sleep -s 3")
                     [void]$content.AppendLine("`n")
                 }
             }
         }
         if ($content.Length -gt 0) {
             # Write-Host $writeLogFunction
-
-
             [void]$content.Insert(0, $startTimeScript, 1)
             [void]$content.Insert(0, $writeLogFunction, 1)
             [void]$content.AppendLine($endTimeScript)
@@ -189,3 +283,4 @@ if ($scripts) {
         }
     }
 }
+
