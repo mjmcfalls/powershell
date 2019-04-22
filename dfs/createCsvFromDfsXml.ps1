@@ -185,6 +185,10 @@ Function Generate-MigrationScripts {
 }
 
 $scriptFunctions = @'
+[CmdletBinding()]
+Param(
+    [int]$sleep=1
+)
 Function Write-Log {
     [CmdletBinding()]
     Param(
@@ -275,17 +279,16 @@ Function Test-DfsResult {
 $migrationBody = @'
 
 $startTime = Get-Date
-$sleepTime = 1
 ForEach ($target in $targets) {
     
     Write-Log -logfile $logName -Message "Source DFS Link: $($target.remove); Source DFS Target: $($target.src); New DFS Target: $($target.target)"
     Write-Host "Removing Link: $($target.link)"
-    # Invoke-Expression $($target.remove)
+    Invoke-Expression $($target.remove) | Out-Null
     Write-Host "Updating link: $($target.target)"
-    # Invoke-Expression $($target.update)
+    Invoke-Expression $($target.update) | Out-Null
     $results = Test-DfsResult $target.link $logName
     Write-Host "`n"
-    Start-Sleep -s $sleepTime
+    Start-Sleep -s $sleep
 }
 
 '@
