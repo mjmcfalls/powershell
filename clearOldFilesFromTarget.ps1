@@ -52,14 +52,14 @@ Function Process-Directory {
                     Get-ChildItem $subDir -Recurse | ForEach {
                         Write-Host "Removing $($_.FullName)"
                         Write-Log -Level "INFO" -Message "Removed: $($_.FullName)" -logfile $LogFile
-                        Remove-Item $_.FullName -Force
+                        # Remove-Item $_.FullName -Force
                     }
                     Remove-PSDrive -Name "z"
                     # .Directory or PSParentPath
                 }
                 else {
-                    Write-Host "Removing: $($_.FullName)"
-                    Remove-Item $_.FullName -Force
+                    Write-Host "Removing: $($dir.FullName)"
+                    # Remove-Item $_.FullName -Force
                 }
                 Write-Log -Level "INFO" -Message "Removed: $($dir.FullName)" -logfile $LogFile
             }
@@ -72,24 +72,36 @@ Function Process-Directory {
 $StartTime = Get-Date
 $ExcludeDirs = @("Docs", "fincfx")
 $TargetDate = (Get-Date).AddDays( - ($Days))
+$CountRemovedDirs = 0
 # Check each directory to see if it is older than $days; if so delete all items in folder
 Get-ChildItem -Directory -Path $Path | Sort-Object | Foreach {
+    
     if ($ExcludeDirs -contains $_.Name) {
         Write-Host "Skipping $($_.FullName)"
     }
     else {
-        
         if ( $_.LastWriteTime -lt $TargetDate) {
             Write-Host "$($_.LastWriteTime) - $($TargetDate) - $($_.FullName)"
             # Write-Host "Processing $($_.FullName)"
             Process-Directory -Path $_.FullName -LogFile $LogFile
+            $CountRemovedDirs += 1
+        }
+        else {
+            Write-Host "$($_.FullName) is less than $($Days) old; LastWriteTime: $($_.LastWriteTime)"
+            Write-Log -Level "INFO" -Message "$($_.FullName) is less than $($Days) old; LastWriteTime: $($_.LastWriteTime)" -logfile $LogFile
         }
     }
 }
 
-Get-ChildItem -Path $Path -Recurse -Force | 
-Where-Object { $_.PSIsContainer -and (Get-ChildItem -Path $_.FullName -Recurse -Force | 
-        Where-Object { !$_.PSIsContainer }) -eq $null } | Remove-Item -Force -Recurse
+if ($CountRemovedDirs -gt 0) {
+    Write-Host "Removing Empty directories"
+    Get-ChildItem -Path $Path -Recurse -Force | 
+    Where-Object { $_.PSIsContainer -and (Get-ChildItem -Path $_.FullName -Recurse -Force | 
+            Where-Object { !$_.PSIsContainer }) -eq $null } | Remove-Item -Force -Recurse
+}
+else {
+    Write-Log -Level "INFO" -Message "No directories removed; skilling empty directory removals."
+}
 
 $EndTime = Get-Date
 $TimeSpan = (New-Timespan -Start $StartTime -End $endTime)

@@ -39,6 +39,7 @@ $TargetDate = (Get-Date).AddDays( - ($Days))
 
 # Move Directories created over $days days ago
 Get-ChildItem -Directory -Path $Path | Sort-Object | Foreach {
+    
     if ($ExcludeDirs -contains $_.Name) {
         Write-Host "Skipping $($_.FullName)"
         Write-Log -Level "WARN" -Message "Skipping $($_.FullName)" -logfile $LogFile
@@ -48,9 +49,10 @@ Get-ChildItem -Directory -Path $Path | Sort-Object | Foreach {
         if ( $_.LastWriteTime -lt $TargetDate) {
             # Write-Host "Processing $($_.FullName)"
             # $_ | Select-Object -Property *
+            $TargetMove = $(Join-Path -Path $TargetPath -ChildPath $_.Name)
             Write-Log -Level "INFO" -Message "Moving $($_.Name) to $(Join-Path -Path $TargetPath -ChildPath $_.Name)" -logfile $LogFile
-            Write-Host "Moving $($_.Name) to $(Join-Path -Path $TargetPath -ChildPath $_.Name)"
-            Move-Item $_.FullName (Join-Path -Path $_.PSParentPath -ChildPath $_.Name)
+            Write-Host "Moving $($_.FullName) to $($TargetMove)"
+            Move-Item $_.FullName $TargetMove
         }
     }
 }
