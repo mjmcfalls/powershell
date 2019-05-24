@@ -46,15 +46,13 @@ Function Process-Directory {
                     # Write-Host "$($dir.FullName.length) - $($dir.FullName)"
                     # $dir | Select-Object -Property *
                     # Write-Host "$(Split-Path -Path $dir.Directory)"
-                    New-PSDrive -Name "z" -PSProvider FileSystem -Root $dir.Directory | Out-Null
-                    $subDir = Get-ChildItem z:
+                    $subDir = Get-ChildItem -LiteralPath ("\\?\UNC" + $dir.Directory.Substring(1))
                     # $subDir
                     Get-ChildItem $subDir -Recurse | ForEach {
                         Write-Host "Removing $($_.FullName)"
                         Write-Log -Level "INFO" -Message "Removed: $($_.FullName)" -logfile $LogFile
                         # Remove-Item $_.FullName -Force
                     }
-                    Remove-PSDrive -Name "z"
                     # .Directory or PSParentPath
                 }
                 else {
