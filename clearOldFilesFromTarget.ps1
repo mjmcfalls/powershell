@@ -51,13 +51,13 @@ Function Process-Directory {
                     Get-ChildItem $subDir -Recurse | ForEach {
                         Write-Host "Removing $($_.FullName)"
                         Write-Log -Level "INFO" -Message "Removed: $($_.FullName)" -logfile $LogFile
-                        # Remove-Item $_.FullName -Force
+                        Remove-Item $_.FullName -Force
                     }
                     # .Directory or PSParentPath
                 }
                 else {
                     Write-Host "Removing: $($dir.FullName)"
-                    # Remove-Item $_.FullName -Force
+                    Remove-Item $_.FullName -Force
                 }
                 Write-Log -Level "INFO" -Message "Removed: $($dir.FullName)" -logfile $LogFile
             }
