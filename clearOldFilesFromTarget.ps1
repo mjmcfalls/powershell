@@ -57,7 +57,7 @@ Function Process-Directory {
                 }
                 else {
                     Write-Host "Removing: $($dir.FullName)"
-                    Remove-Item $_.FullName -Force
+                    Remove-Item $dir.FullName -Force
                 }
                 Write-Log -Level "INFO" -Message "Removed: $($dir.FullName)" -logfile $LogFile
             }
