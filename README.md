@@ -14,3 +14,7 @@ Prepend '\\?\UNC' to a UNC path; ex:
 ```powershell
   Get-ChildItem -LiteralPath '\\?\UNC\Server\Share'
   ```
+#### Test if Directory is empty
+```powershell
+((Get-ChildItem $Path -Force | Select-Object -First 1 | Measure-Object).Count -eq 0)
+```
