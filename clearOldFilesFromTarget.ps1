@@ -32,74 +32,116 @@ Function Write-Log {
     }
 }
 
-Function Process-Directory {
+Function Remove-LongPathNames {
+    [CmdletBinding(
+        SupportsShouldProcess = $True
+    )]
     Param(
-        [string]$Path,
-        [string]$LogFile
+        [string]$Path
     )
-    $dirs = Get-ChildItem -Recurse -Path $Path
-    ForEach ($dir in $dirs) {
-        # Write-Host $dir
-        if (-Not $dir.PSIsContainer) {
-            Try {
-                if ($dir.FullName.length -ge 260) {
-                    # Write-Host "$($dir.FullName.length) - $($dir.FullName)"
-                    # $dir | Select-Object -Property *
-                    # Write-Host "$(Split-Path -Path $dir.Directory)"
-                    $subDir = Get-ChildItem -LiteralPath ("\\?\UNC" + $dir.Directory.Substring(1))
-                    # $subDir
-                    Get-ChildItem $subDir -Recurse | ForEach {
-                        Write-Host "Removing $($_.FullName)"
-                        Write-Log -Level "INFO" -Message "Removed: $($_.FullName)" -logfile $LogFile
-                        Remove-Item $_.FullName -Force
-                    }
-                    # .Directory or PSParentPath
-                }
-                else {
-                    Write-Host "Removing: $($dir.FullName)"
-                    Remove-Item $_.FullName -Force
-                }
-                Write-Log -Level "INFO" -Message "Removed: $($dir.FullName)" -logfile $LogFile
-            }
-            Catch {
-                Write-Log -Level "ERROR" -Message $_ -logfile $LogFile
-            }
+
+    if ($_.FullName.length -ge 200) {
+        if (-Not $_.FullName.StartsWith("\\?\UNC")) {
+            $Path = "\\?\UNC" + $_.FullName.Substring(1)
         }
     }
-}
-$StartTime = Get-Date
-$ExcludeDirs = @("Docs", "fincfx")
-$TargetDate = (Get-Date).AddDays( - ($Days))
-$CountRemovedDirs = 0
-# Check each directory to see if it is older than $days; if so delete all items in folder
-Get-ChildItem -Directory -Path $Path | Sort-Object | Foreach {
-    
-    if ($ExcludeDirs -contains $_.Name) {
-        Write-Host "Skipping $($_.FullName)"
-    }
-    else {
-        if ( $_.LastWriteTime -lt $TargetDate) {
-            Write-Host "$($_.LastWriteTime) - $($TargetDate) - $($_.FullName)"
-            # Write-Host "Processing $($_.FullName)"
-            Process-Directory -Path $_.FullName -LogFile $LogFile
-            $CountRemovedDirs += 1
+
+    if ( $_.PSIsContainer) {
+        if ((Get-ChildItem -LiteralPath "$($Path)" -Force | Select-Object -First 1 | Measure-Object).Count -eq 0) {
+            # Folder is empty; Remove folder
+            Remove-Item -LiteralPath "$($Path)" -Force 
         }
         else {
-            Write-Host "$($_.FullName) is less than $($Days) old; LastWriteTime: $($_.LastWriteTime)"
-            Write-Log -Level "INFO" -Message "$($_.FullName) is less than $($Days) old; LastWriteTime: $($_.LastWriteTime)" -logfile $LogFile
+            Write-Warning "Not Empty: $($Path)"
+        }
+    }
+    else {
+        # If not a directory.
+        Remove-Item -LiteralPath "$($Path)" -Force
+    }
+}
+
+Function Clean-Dirs {
+    [CmdletBinding(
+        SupportsShouldProcess = $True
+    )]
+    Param(
+        [string]$Path,
+        [switch]$Directory = $False
+    )
+
+    if ($Path.length -ge 160) {
+        $Path = "\\?\UNC" + $Path.Substring(1)
+    }
+    if ($Directory) {
+        # Write-Host "Directory flag found"
+        Try {
+            # Write-Host 'Try getting child dirs.'
+            Get-ChildItem -LiteralPath "$($Path)" -Force -Directory -Recurse -ErrorAction "Stop" | 
+            Sort-Object -Property @{Expression = "FullName"; Descending = $True } |
+            ForEach {
+                Write-Host "Dir: $($_.FullName)"
+                Remove-LongPathNames $_.FullName
+            }
+        }
+        Catch [System.IO.DirectoryNotFoundException] {
+            # Write-Host "dir deleting error"
+            $Path = "\\?\UNC" + $Path.Substring(1)
+            Get-ChildItem -LiteralPath "$($Path)" -Force -Directory -Recurse | 
+            Sort-Object -Property @{Expression = "FullName"; Descending = $True } |
+            ForEach {
+                Write-Host "Dir: $($_.FullName)"
+                Remove-LongPathNames $_.FullName
+            }
+        }
+        Write-Host "Dir: $($Path)"
+        Remove-LongPathNames "$($Path)"
+    }
+    else {
+        Try {
+            Get-ChildItem -LiteralPath "$($Path)" -Force -Recurse -File -ErrorAction "Stop" |
+            Where-Object { -Not $_.PSIsContainer } | 
+            Sort-Object -Property  @{Expression = "FullName"; Descending = $True } |
+            ForEach {
+                If (-Not $_.PSIsContainer) {
+                    # Remove Files
+                    Write-host "File: $($_.FullName)"
+                    Remove-LongPathNames $_.FullName
+                }
+            }
+        }
+        Catch [System.IO.DirectoryNotFoundException] {
+            $Path = "\\?\UNC" + $Path.Substring(1)
+            # Write-Host "Catch file exception - new path: $($Path)"
+            Get-ChildItem -LiteralPath "$($Path)" -Force -File -Recurse |
+            Where-Object { -Not $_.PSIsContainer } | 
+            Sort-Object -Property  @{Expression = "FullName"; Descending = $True } |
+            ForEach {
+                If (-Not $_.PSIsContainer) {
+                    # Remove Files
+                    Write-host "File: $($_.FullName)"
+                    Remove-LongPathNames $_.FullName
+                }
+            }
         }
     }
 }
 
-if ($CountRemovedDirs -gt 0) {
-    Write-Host "Removing Empty directories"
-    Get-ChildItem -Path $Path -Recurse -Force | 
-    Where-Object { $_.PSIsContainer -and (Get-ChildItem -Path $_.FullName -Recurse -Force | 
-            Where-Object { !$_.PSIsContainer }) -eq $null } | Remove-Item -Force -Recurse
+$StartTime = Get-Date
+$TargetDate = (Get-Date).AddDays( - ($Days))
+$CountRemovedDirs = 0
+
+# Filter out directories not older than $days, and sort by PSIContainer, the Full Path Name.
+Get-ChildItem -Path $Path -Force -Directory | 
+Where-Object { $_.LastWriteTime -lt $TargetDate } | 
+Sort-Object -Property @{Expression = "PSIsContainer"; Descending = $False }, @{Expression = "FullName"; Descending = $False } |
+ForEach {
+    Clean-Dirs -Path $_.FullName
+    Clean-Dirs -Path $_.FullName -Directory
+    $CountRemovedDirs += 1
 }
-else {
-    Write-Log -Level "INFO" -Message "No directories removed; skilling empty directory removals."
-}
+
+Write-Host "Removed $($CountRemovedDirs) directories."
 
 $EndTime = Get-Date
 $TimeSpan = (New-Timespan -Start $StartTime -End $endTime)
