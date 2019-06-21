@@ -116,7 +116,7 @@ Function Clean-Dirs {
             Get-ChildItem -LiteralPath "$($Path)" -Force -File -Recurse |
             Where-Object { -Not $_.PSIsContainer } | 
             Sort-Object -Property  @{Expression = "FullName"; Descending = $True } |
-            ForEach-Object-Object {
+            ForEach-Object {
                 If (-Not $_.PSIsContainer) {
                     # Remove Files
                     Write-host "File: $($_.FullName)"
