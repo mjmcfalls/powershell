@@ -1,5 +1,5 @@
 # Set config.xml path
-$configFile = "C:\Users\tecmmx\Desktop\code\CiscoSparkBot\config.xml"
+$configFile = "C:\folder\with\config.xml"
 # Import Configuration xml file
 $config = New-Object -TypeName XML
 $config.Load($configFile)

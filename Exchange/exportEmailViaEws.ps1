@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    $file = "email.csv",
-    $downloadDir
+    [string]$file = "email",
+    [string]$downloadDir
 )
 
 Function Check-ChildFolders {
@@ -14,36 +14,44 @@ Function Check-ChildFolders {
         $downloadDir
     )
     # Write-Host "Checking child Folder"
-    # Write-Host $folder.Id
+    # Write-Host "Check-ChildFolders Folder: $($folder.DisplayName)"
     $folderEmailArray = New-Object System.Collections.Generic.List[System.Object]
     
+    # if ($folder.ChildFolderCount -gt 0) {
     $cFolders = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($service, $folder.Id)
     $folds = $cFolders.FindFolders($folderView)
     foreach ($fold in $folds) {
-        # $fold
-        if ($fold.TotalCount -gt 0) {
-            # Write-Host "FolderEmailArray Count: $($folderEmailArray.count)"
-            Write-Debug "$($fold.DisplayName); Msg Count: $($fold.TotalCount); Child Folders: $($fold.ChildFolderCount)"
-            if ($fold.ChildFoldercount -gt 0) {
-                # Write-Host $cFolder.DisplayName
-                $returnedFoldArray = Check-ChildFolders $fold $folderview $itemView $service $downloadDir
-               
-            }
-            $returnedMailArray = Get-MailItems $fold $ivItemView $downloadDir
-            # if($returnedArray.Count -gt 0){
-            # $folderEmailArray = $folderEmailArray + $returnedMailArray + $returnedFoldArray
-            if ($returnedMailArray) {
-                $folderEmailArray.AddRange($returnedMailArray)
-            }
-            
-            if ($returnedFoldArray) {
-                $folderEmailArray.AddRange($returnedFoldArray)
-            }
-            
-            Write-Debug "FolderEmailArray Count: $($folderEmailArray.count)"
-            # }
+        # if ($fold.TotalCount -gt 0) {
+        # Write-Host "$($fold.DisplayName); Msg Count: $($fold.TotalCount); Child Folders: $($fold.ChildFolderCount)"
+        # Write-Host "FolderEmailArray Count: $($folderEmailArray.count)"
+        # if ($fold.ChildFoldercount -gt 0) {
+        # Write-Host $cFolder.DisplayName
+        $returnedFoldArray = Check-ChildFolders $fold $folderview $itemView $service $downloadDir
+        # }
+        # else {
+        #     $returnedFoldArray = Get-MailItems $fold $ivItemView $downloadDir
+        # }
+
+        if ($returnedFoldArray) {
+            $folderEmailArray.AddRange($returnedFoldArray)
         }
+        # }
     }
+    # }
+
+    # Get root folder email
+    # Write-Host ($folder | Select-Object -Property * | Format-List | Out-String)
+    # if ($folder.TotalCount -gt 0) {
+    # Write-Host ($folder | Select-Object -Property * | Format-List | Out-String)
+    # Write-Host "Get email for: $($folder.DisplayName)"
+    $returnRootEmailArray = Get-MailItems $folder $ivItemView $downloadDir
+    
+    if ($returnRootEmailArray) {
+        $folderEmailArray.AddRange($returnRootEmailArray)
+    }
+        
+    # }
+   
     return $folderEmailArray
 }
 
@@ -52,6 +60,11 @@ Function Get-Attachments {
         $item,
         $downloadDir 
     )
+
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() -join ''
+
+    $invalidCharsRegex = "[" + [regex]::Escape($invalidChars) + "]"
+    $epochStart = Get-Date -Date "01/01/1970"
     if ($item.hasAttachments) {
         if (-Not (Test-Path $downloadDir -PathType Container)) {
             New-Item -ItemType Directory -Force -Path $downloadDir #| Out-Null
@@ -59,22 +72,26 @@ Function Get-Attachments {
 
         foreach ($attach in $Item.Attachments) {
             $attach.Load()
-
-
-            #
-            #Check for invalid characters in name
-            #
-            #
-
-            Write-Debug "Download attachment dir: $($downloadDir)"
-            $oFilePath = (Join-Path -Path $downloadDir -ChildPath $attach.Name.ToString())
-            Write-Debug "Downloaded Attachment : $(Join-Path -Path $downloadDir -ChildPath $attach.Name.ToString())"
-            # Write-Host "Attachment path: $($oFilePath)"
-            $oFile = new-object System.IO.FileStream("$($oFilePath)", [System.IO.FileMode]::Create)
-            $oFile.Write($attach.Content, 0, $attach.Content.Length)
-            $oFile.Close()
-
-            
+            # Write-Host ($attach | Select-Object -Property * | Format-List | Out-String)
+            $FileEpochTime = (New-Timespan -Start $epochStart -end $attach.LastModifiedTime).TotalSeconds
+            if ($attach.Content.Length -gt 0) {
+                $attachName = ($attach.Name.ToString().trim())
+                $attachName = "$($attach.id[-7..-1] -join '')$($FileEpochTime)_" + $attachName
+                Write-Host "Downloading: $($attachName); Size: $($attach.Content.Length)"
+                if ($attachName -match $invalidCharsRegex) {
+                    Write-Debug "$($attachName) contains invalid characters"
+                    $attachName = $attachName.split([System.IO.Path]::GetInvalidFileNameChars()) -join ""
+                    Write-Debug "$($attachName) after character removal"
+                } 
+    
+                # Write-Debug "Download attachment dir: $($downloadDir)"
+                $oFilePath = (Join-Path -Path $downloadDir -ChildPath $attachName)
+                Write-Debug "Downloaded Attachment : $($oFilePath)"
+                # # Write-Host "Attachment path: $($oFilePath)"
+                $oFile = new-object System.IO.FileStream("$($oFilePath)", [System.IO.FileMode]::Create)
+                $oFile.Write($attach.Content, 0, $attach.Content.Length)
+                $oFile.Close()
+            }
         }
     }
 }
@@ -86,59 +103,69 @@ Function Get-MailItems {
         $downloadDir
     )
     $localEmailArray = New-Object System.Collections.Generic.List[System.Object]
+    
     $tempDownloadDir = Join-Path -Path $downloadDir -ChildPath $folder.DisplayName
-    # Write-Host "Getting mail for $($folder.DisplayName)"
-    $fiItems = $service.FindItems($folder.Id, $itemView) 
+    Write-Host "Getting mail for $($folder.DisplayName)"
+    $fiItems = $service.FindItems($folder.Id, $itemView)
+
     for ($i = 0; $i -le $fiItems.Items.count - 1; $i++) {
         $Item = $fiItems.Items[$i]
-        # write-host $fiItems.Items.count, $i, $Item.Subject
-        $emailItem = "" | Select Label, Sender, Subject, Recipients, ReceivedDate, Id, TextBody, Size, DateTimeSent, DateTimeCreated
+        # Write-Host ($Item | Get-Member)
+        
+        $emailProperties = @{ }
         # Write-Host "Processing $($Item.Subject)"
         $Item.Load($PropertySet)
-        $emailItem.TextBody = $Item.Body.toString()
-        # $bodyText = $Item.Body.toString()
-        # if($bodyText){
-        #     $tempBody = $bodyText -split "From:" | Select -First 1
-        #     $emailItem.TextBody = $tempBody -replace "`n",", " -replace "`r",", " -replace ","," "
-        # }
-        # else{
-        #     $emailItem.TextBody = " "
-        # }
-       
-        $emailItem.Recipients
-        $emailItem.Label = $folder.DisplayName
-        $emailItem.Id = $Item.Id   
-        $emailItem.ReceivedDate = $Item.DateTimeReceived   
-        $emailItem.Subject = $Item.Subject   
-        $emailItem.Size = $Item.Size  
-        $emailItem.Sender = $Item.Sender 
-        $emailItem.DateTimeSent = $Item.DateTimeSent
-        $emailItem.DateTimeCreated = $Item.DateTimeCreated
-        $localEmailArray.Add($emailItem)
-        Get-Attachments $Item $tempDownloadDir
-        Write-Progress -Activity "Processing emails in $folder" -Status "Item number $i" -PercentComplete ($i / $fiItems.Items.count * 100)  
-    } 
-    # else { 
-    #     "Error Folder Not Found"  
-    #     $tfTargetFolder = $null  
-    #     break
-    # }
-    return $localEmailArray
-
-
-    # foreach ($Item in $fiItems.Items) {  
-    #     $emailItem = "" | Select Label, Sender, Subject, ReceivedDate, Id, TextBody, Size, DateTimeSent, DateTimeCreated
-    #     # Write-Host "Processing $($Item.Subject)" 
-
-    #     $Item.Load($PropertySet)
-    #     # $Item | Select-Object -Property * | fl
+        if ($Item.Body) { 
+            # $tempBody = $bodyText -split "From:" | Select -First 1
+            # $emailProperties.Add("TextBody", ($Item.Body.ToString() -replace '`"', '' -replace '`r`n', ''))
+            $emailProperties.Add("Body", ("`'" + $Item.Body.ToString() + "`'"))
+            # -replace "`n",' ' -replace "`r",' ' 
+        }
+        else {
+            $emailProperties.Add("TextBody", $null)
+        }
+        $ToRecipients = $Item.ToRecipients -join ";" -Replace "SMTP:", ""
+        $ccRecipients = $Item.CcRecipients -join ";" -Replace "SMTP:", ""
+        # Write-Host "$($ToRecipients)"
+        # Write-Host "DateTime String: $($Item.DateTimeReceived.ToString())"
+        # Write-Host "DateTime Seconds: $($Item.DatetimeReceived.GetType())"
+        $emailProperties.Add("ToRecipients", $ToRecipients.ToString())
+        $emailProperties.Add("CcRecipients", $ccRecipients.ToString())
+        $emailProperties.Add("Label", $folder.DisplayName)
+        $emailProperties.Add("Id", $Item.Id)
+        $emailProperties.Add("Subject", $Item.Subject) 
+        $emailProperties.Add("Size", $Item.Size)
+        $emailProperties.Add("Sender", $Item.Sender)
+        $emailProperties.Add("HasAttachments", $Item.hasAttachments)
+        if ($item.hasAttachments) {
+            $Attachments = @()
+            ForEach ($Attachment in $Item.Attachments) {
+                # $Attachment.Load()
+                if ($Attachment.Content.Length -gt 0) {
+                    $attachName = $Attachment.Name.ToString()
+                    $Attachments += $attachName
+                    # Write-Host $Attachments
+                    # Write-Host $attachName
+                }
+            }
+            # Write-Host ($Attachments -join ";")
+            $EmailProperties.Add("Attachments", ($Attachments -join ";"))
+        }
+        $emailProperties.Add("ReceivedDate", $Item.DateTimeReceived.ToString())
+        $emailProperties.Add("DateTimeSent", $Item.DateTimeSent.ToString())
+        $emailProperties.Add("DateTimeCreated", $Item.DateTimeCreated.ToString())
+        $emailObject = New-Object -TypeName PSObject -Property $emailProperties
+        $localEmailArray.Add($emailObject)
         
-
-    # }
+        Get-Attachments $Item $tempDownloadDir
+        Write-Progress -Activity "Processing emails in $($folder.DisplayName)" -Status "Item number $($i)" -PercentComplete ($i / $fiItems.Items.count * 100)  
+    } 
+    Write-Progress -Activity "Processing emails in $($folder.DisplayName)" -Status "Ready" -Completed
+    return $localEmailArray
 }
 
 # Set config.xml path
-$configFile = "C:\Users\tecmmx\Desktop\code\powershell\config.xml"
+$configFile = "C:\folder\with\config.xml"
 # Import Configuration xml file
 $config = New-Object -TypeName XML
 $config.Load($configFile)
@@ -150,10 +177,10 @@ $uri = $config.configuration.appSettings['uri'].InnerText
 # $MailboxName = $config.configuration.appSettings['MailboxName'].InnerText
 $MailboxName = "Root"
 $user = $config.configuration.appSettings['user'].InnerText
-$File = $config.configuration.appSettings['pass'].InnerText
+$pass = $config.configuration.appSettings['pass'].InnerText
 $dllpath = $config.configuration.appSettings['dllpath'].InnerText
 $logFile = $config.configuration.appSettings['logFile'].InnerText
-$outCsv = $config.configuration.appSettings['outFile'].InnerText
+# $outCsv = $config.configuration.appSettings['outFile'].InnerText
 $FolderName = @(($config.configuration.appSettings['getFolders'].InnerText) -split ",")
 
 $EWSServicePath = $dllpath
@@ -165,16 +192,17 @@ if (!$PSScriptRoot) {
 
 $ExchangeVersion = [Microsoft.Exchange.WebServices.Data.ExchangeVersion]::Exchange2013
 $service = new-object Microsoft.Exchange.WebServices.Data.ExchangeService($ExchangeVersion)
-$psCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $user, (Get-Content $File | ConvertTo-SecureString)
+$psCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $user, (Get-Content $pass | ConvertTo-SecureString)
 $creds = New-Object System.Net.NetworkCredential($psCred.UserName.ToString(), $psCred.GetNetworkCredential().password.ToString())    
 $service.Credentials = $creds 
 $PropertySet = New-Object Microsoft.Exchange.WebServices.Data.PropertySet([Microsoft.Exchange.WebServices.Data.BasePropertySet]::FirstClassProperties)
 $PropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType]::Text
+# $PropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType]::HTML
 
 $service.Url = new-object Uri($uri)
 
 $ivItemView = New-Object Microsoft.Exchange.WebServices.Data.ItemView(2000)  
-$folderView = New-Object Microsoft.Exchange.WebServices.Data.Folderview(100)
+$folderView = New-Object Microsoft.Exchange.WebServices.Data.Folderview(1000)
 #Bind to the MSGFolder Root 
 # $folderid = new-object Microsoft.Exchange.WebServices.Data.FolderId([Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::MsgFolderRoot, $MailboxName)
 $rootFolder = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($service, [Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::MsgFolderRoot)
@@ -182,7 +210,8 @@ $rootFolder = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($service, [Micr
 $folders = $rootFolder.FindFolders($folderView)
 
 foreach ($folder in $folders) {
-    if ($folder.DisplayName -notin ("Calendar", "Contacts", "Conflicts", "Conversation History", "OutBox", "Recipient Cache", "vm")) {
+    # $folder.DisplayName
+    if ($folder.DisplayName -notin ("Conversation History", "Drafts")) {
         $returnedArray = Check-ChildFolders $folder $folderView $ivItemView $service $downloadDir
         if ($returnedArray) {
             $emailArray.AddRange($returnedArray)
@@ -191,29 +220,9 @@ foreach ($folder in $folders) {
 }
 
 
-$outPath = Join-Path -Path $PSScriptRoot -ChildPath $outCsv
+$outPath = Join-Path -Path $downloadDir -ChildPath ($file + ".json")
 Write-Debug "Writing $($outPath)"
 
-$emailArray | Export-Csv (Join-Path -Path $PSScriptRoot -ChildPath $outCsv) -NoTypeInformation
-# Write-Host "Done!"
-
-# Id                       : AAMkAGVkMWZlMTQyLWYwOTItNDlkOS05YWEwLTc4ODY5NTQ4ZjkyYwAuAAAAAADRLh5VmC2wTIfPTvIiYtWvAQC3z2nxN0cETJPlbz
-#                            csGHjvAAAAWJklAAA=
-# ParentFolderId           : AAMkAGVkMWZlMTQyLWYwOTItNDlkOS05YWEwLTc4ODY5NTQ4ZjkyYwAuAAAAAADRLh5VmC2wTIfPTvIiYtWvAQC3z2nxN0cETJPlbz
-#                            csGHjvAAAAAAEIAAA=
-# ChildFolderCount         : 0
-# DisplayName              : vm
-# FolderClass              : IPF.Note
-# TotalCount               : 9
-# ExtendedProperties       : {}
-# ManagedFolderInformation :
-# EffectiveRights          : CreateAssociated, CreateContents, CreateHierarchy, Delete, Modify, Read, ViewPrivateItems
-# Permissions              : {}
-# UnreadCount              : 0
-# PolicyTag                :
-# ArchiveTag               :
-# WellKnownFolderName      :
-# Schema                   : {Id, ParentFolderId, FolderClass, DisplayName...}
-# Service                  : Microsoft.Exchange.WebServices.Data.ExchangeService
-# IsNew                    : False
-# IsDirty                  : False
+# $emailArray | ConvertTo-Json  -Compress | Out-File ( $outPath -replace ".csv", ".json")
+$emailArray | ConvertTo-Json | Out-File ( $outPath )
+Write-Host "Number of Emails exported: $($emailArray.count)"

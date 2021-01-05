@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<configuration>
+  <startup>
+  </startup>
+  <appSettings>
+    <uri>https://onPremExchange/EWS/Exchange.asmx</uri>
+    <user>doman\user</user>
+    <domain>@domain.com</domain>
+    <MailboxName>email@domain.com</MailboxName>
+    <pass>pass.txt</pass>
+    <dllpath>C:\Program Files (x86)\Microsoft\Exchange\Web Services\2.1\Microsoft.Exchange.WebServices.dll</dllpath>
+    <logFile>ewsNotification.log</logFile>
+    <label>Inbox</label>
+    <outFile>email.csv</outFile>
+    <outStatusFile>StatusEmail.csv</outStatusFile>
+    <getFolders>FolderName</getFolders>
+    <inbox>Inbox</inbox>
+  </appSettings>
+</configuration>
+

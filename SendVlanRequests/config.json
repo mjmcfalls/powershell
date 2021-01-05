@@ -1,0 +1,16 @@
+{
+    "version": "1.5",
+    "smtp" : "SMTPServer",
+    "port": 25,
+    "subject" : "Subject-Line",
+    "to" : [
+        {"email":"to@email.address"}
+    ],
+    "cc":[
+        {"email": "cc_1@email.address"},
+        {"email":"cc_2@email.address"}
+    ],
+    "from" : "from@email.address",
+    "attachments":"",
+    "body" : ""
+}
