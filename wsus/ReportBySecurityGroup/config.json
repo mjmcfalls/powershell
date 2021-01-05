@@ -1,0 +1,19 @@
+{
+    "version": "1.9",
+    "smtp": "smtp_server",
+    "port": 25,
+    "subject": "[REPORT] WSUS Report - DATE",
+    "to": [
+        {
+            "email": "To@email.address"
+        }
+    ],
+    "cc": [
+        {
+            "email": "cc_1@email.address"
+        }
+    ],
+    "from": "From Name <from@email.address>",
+    "attachments": "",
+    "body": "Whatever needs to be in the body\nFile located on SERVER at: SAVED\nCreated: DATE"
+}

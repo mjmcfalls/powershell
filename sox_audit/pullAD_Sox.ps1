@@ -80,10 +80,10 @@ foreach($param in $params.PSObject.Properties){
     }
 }
 
-$body = "Mission Health Sox report`nRetrieved $($date)`n`nPlease do not reply to $($msgparams.from)! It is a non-existent email!"
+$body = "Sox report`nRetrieved $($date)`n`nPlease do not reply to $($msgparams.from)! It is a non-existent email!"
 $msgparams.body = $body
 $msgparams.attachments = "$($compressed)"
-$msgparams.subject = "Mission Health Sox data - $($date)"
+$msgparams.subject = " Sox data - $($date)"
 Write-Host "Sending Email"
 # $msgparams
 $results = send-mailmessage @msgparams 
