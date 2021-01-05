@@ -1,0 +1,4 @@
+Here is the powershell used to generate the csv.  
+It looks a little wonky witht the double filter, but that was to remove some standard properties, such as SID, CN, DN from the powershell object.
+
+Get-AdUser -Filter * -Properties SamAccountName, DisplayName, GivenName, Surname, EmployeeID, Company, Department, Created, Enabled, LastLogonDate, PasswordExpired, PasswordLastSet, Title, Modified | Select-Object -Property SamAccountName, DisplayName, GivenName, Surname, EmployeeID, Company, Department, Created, Enabled, LastLogonDate, PasswordExpired, PasswordLastSet, Title, Modified | Export-CSV .\src_data\users.csv -NoTypeInformation

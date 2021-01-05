@@ -1,0 +1,10 @@
+pipeline {
+    agent any
+    stages {
+        stage("Pull and Send Sox AD data"){
+            steps{       
+                    powershell '''.\\pullAD_Sox.ps1'''
+            }
+        }
+    }
+}
