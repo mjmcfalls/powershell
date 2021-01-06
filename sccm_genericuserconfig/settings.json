@@ -1,0 +1,112 @@
+{
+    "configFile": "C:\\admin\\config.json",
+    "firstRunUri": "http://innoutil.msj.org/sa/getileconfig.html",
+    "lookup": {
+        "asha": {
+            "user": "ashaagu[^t]",
+            "trackingboard": "ashagut",
+            "pacs": "ashapacs"
+        },
+        "amcf": {
+            "user": "amcfgu[^t]",
+            "trackingboard": "amcfgut",
+            "pacs": "amcfpacs"
+        },
+        "avl": {
+            "user": "avlgu[^t]",
+            "trackingboard": "avlgut",
+            "pacs": "avlpacs"
+        },
+        "brrs": {
+            "user": "brrsgu[^t]",
+            "trackingboard": "brrsgut",
+            "pacs": "brrspacs"
+        },
+        "crha": {
+            "user": "crhagu[^t]",
+            "trackingboard": "crhagut",
+            "pacs": "crhapacs"
+        },
+        "hchh": {
+            "user": "hchhgu[^t]",
+            "trackingboard": "hchhgut",
+            "pacs": "hchhpacs"
+        },
+        "mhva": {
+            "user": "mhvagu[^t]",
+            "trackingboard": "mhvagut",
+            "pacs": "mhvapacs"
+        },
+        "mhma": {
+            "user": "mhmagu[^t]",
+            "trackingboard": "mhmagut",
+            "pacs": "mhmapacs"
+        },
+        "ncsa": {
+            "user": "ncsagu[^t]",
+            "trackingboard": "ncsagut",
+            "pacs": "ncsapacs"
+        },
+        "ncdv": {
+            "user": "ncdvgu[^t]",
+            "trackingboard": "ncdvgut",
+            "pacs": "ncdvpacs"
+        },
+        "trhb": {
+            "user": "trhbgu[^t]",
+            "trackingboard": "trhbgut",
+            "pacs": "trhbpacs"
+        }
+    },
+    "taskLookup": {
+        "firstnet": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto Launch Firstnet on a tracking board",
+            "name": "Firstnet - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs `"c:\Admin\autoLaunchApp.ps1 -app firstnet`""
+        },
+        "surginet": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto Launch Surginet on a tracking board",
+            "name": "Surginet - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs `"c:\Admin\autoLaunchApp.ps1 -app surginet`""
+        },
+        "spm": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto-launch SPM Needs List",
+            "name": "SPM Needs List - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs `"c:\Admin\autoLaunchApp.ps1 -app spm`""
+        },
+        "edcensusold": {
+            "File": "autoLaunchApp.ps1",
+            "description": "(2020-03-30 (legacy msj)This is here for the removal tool and should not be deployed to prod.",
+            "name": "ED Realtime Census Needs List - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs 'c:\Admin\autoLaunchApp.ps1 -app http'"
+        },
+        "edcensus": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto-launch ED Realtime Census",
+            "name": "ED Realtime Census - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs '\'c:\\Admin\\autoLaunchApp.ps1 -app http -uri \'TARGETURI\''
+        },
+        "getile": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto-launch GE Tile",
+            "name": "GE Tile - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs `"c:\Admin\autoLaunchApp.ps1 -app http -uri `'TARGETURI`'`""
+        },
+        "perahealth": {
+            "File": "autoLaunchApp.ps1",
+            "description": "Auto-launch Perahealth",
+            "name": "Perahealth - Autolaunch",
+            "execute": "C:\\Windows\\System32\\wscript.exe",
+            "command": "c:\\admin\\quietLaunchTask.vbs `"c:\Admin\autoLaunchApp.ps1 -app http -uri `'TARGETURI`'`""
+        }
+    }
+}
